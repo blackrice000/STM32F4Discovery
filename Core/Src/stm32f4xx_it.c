@@ -204,7 +204,7 @@ void SysTick_Handler(void)
 void EXTI0_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI0_IRQn 0 */
-	HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+	HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
   /* USER CODE BEGIN EXTI0_IRQn 1 */

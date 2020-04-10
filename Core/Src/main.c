@@ -48,10 +48,11 @@ I2S_HandleTypeDef hi2s3;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN PV */
-
+int16_t value_pwm;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,10 +62,12 @@ static void MX_I2C1_Init(void);
 static void MX_I2S3_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_TIM4_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
-
+void LED_Blink(uint8_t times_short, uint16_t stime, uint8_t times_long, uint16_t ltime);
+void User_PWM_Setvalue(uint16_t value);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -105,8 +108,10 @@ int main(void)
   MX_SPI1_Init();
   MX_USB_HOST_Init();
   MX_TIM6_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-
+	LED_Blink(4, 250, 0, 0);
+	HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -117,10 +122,21 @@ int main(void)
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
-//    HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);	HAL_Delay(500);
-    HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);	HAL_Delay(500);
-    HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);	HAL_Delay(500);
-//    HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);	HAL_Delay(500);
+//    HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);	HAL_Delay(500);		// use for TIM4 (PWM)
+//    HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);	HAL_Delay(500);		// use for EXTI0
+    HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);	//HAL_Delay(500);
+//    HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);	HAL_Delay(500);		// use for TIM6
+		
+		for(value_pwm=0; value_pwm<2000; value_pwm+=10)
+		{
+			User_PWM_Setvalue(value_pwm);
+			HAL_Delay(5);
+		}
+		for(; value_pwm>0; value_pwm-=10)
+		{
+			User_PWM_Setvalue(value_pwm);
+			HAL_Delay(5);
+		}
   }
   /* USER CODE END 3 */
 }
@@ -282,6 +298,55 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 100-1;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 2000-1;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
+  HAL_TIM_MspPostInit(&htim4);
+
+}
+
+/**
   * @brief TIM6 Initialization Function
   * @param None
   * @retval None
@@ -299,9 +364,9 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 8400;
+  htim6.Init.Prescaler = 8399;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 10000;
+  htim6.Init.Period = 9999;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -314,8 +379,7 @@ static void MX_TIM6_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM6_Init 2 */
-  HAL_TIM_Base_Start(&htim6);
-  HAL_TIM_Base_Start_IT(&htim6);
+
   /* USER CODE END TIM6_Init 2 */
 
 }
@@ -344,8 +408,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(OTG_FS_PowerSwitchOn_GPIO_Port, OTG_FS_PowerSwitchOn_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin 
-                          |Audio_RST_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD5_Pin|LD6_Pin|Audio_RST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : CS_I2C_SPI_Pin */
   GPIO_InitStruct.Pin = CS_I2C_SPI_Pin;
@@ -389,10 +452,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
   HAL_GPIO_Init(CLK_IN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LD4_Pin LD3_Pin LD5_Pin LD6_Pin 
-                           Audio_RST_Pin */
-  GPIO_InitStruct.Pin = LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin 
-                          |Audio_RST_Pin;
+  /*Configure GPIO pins : LD4_Pin LD5_Pin LD6_Pin Audio_RST_Pin */
+  GPIO_InitStruct.Pin = LD4_Pin|LD5_Pin|LD6_Pin|Audio_RST_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -417,7 +478,39 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void LED_Blink(uint8_t times_short, uint16_t stime, uint8_t times_long, uint16_t ltime)
+{
+	unsigned char tmp;
+	for(tmp=0; tmp<times_short*2; tmp++)
+	{
+		HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
+		HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
+		HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+		User_PWM_Setvalue(tmp%2? 0:2000);
+		HAL_Delay(stime);
+	}
+	HAL_Delay(stime);
+	for(tmp=0; tmp<times_long*2; tmp++)
+	{
+		HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
+		HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
+		HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+		User_PWM_Setvalue(tmp%2? 0:2000);
+		HAL_Delay(tmp%2? ltime:stime);
+	}
+	HAL_Delay(stime);
+}
+void User_PWM_Setvalue(uint16_t value)
+{
+	TIM_OC_InitTypeDef sConfigOC;
+	
+	sConfigOC.OCMode = TIM_OCMODE_PWM1;
+	sConfigOC.Pulse = value;
+	sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+	sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+	HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+}
 /* USER CODE END 4 */
 
 /**
